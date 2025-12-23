@@ -1,0 +1,7 @@
+{
+  "name": "Lingvo AI",
+  "description": "A real-time AI translation app supporting remote chat and face-to-face split-screen conversations using Google Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
