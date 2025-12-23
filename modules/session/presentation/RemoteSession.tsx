@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, LANGUAGES } from '../../../shared/types/types';
-import { geminiService } from '../../translation/infrastructure/geminiService';
+import { translationService, sttService, ttsService } from '../../../shared/container';
 
 interface RemoteSessionProps {
   user: User;
@@ -21,7 +21,6 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
   const [error, setError] = useState<string | null>(null);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
 
   // Initialize Session Simulation
   useEffect(() => {
@@ -50,60 +49,47 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
 
   // Handle Speech Recognition
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      const langConfig = LANGUAGES.find(l => l.code === myLang);
-      recognitionRef.current.lang = langConfig?.voiceCode || 'es-ES';
-
-      recognitionRef.current.onresult = async (event: any) => {
-        const text = event.results[0][0].transcript;
-        await handleSendMessage(text);
+    // Stop previous session if language changes
+    if (sttService.isListening()) {
+        sttService.stop();
         setIsRecording(false);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error("Speech Recognition Error", event.error);
-        setIsRecording(false);
-        
-        let errorMessage = errorT.generic;
-        if (event.error === 'not-allowed') errorMessage = errorT.permissionDenied;
-        if (event.error === 'no-speech') errorMessage = errorT.noSpeech;
-        if (event.error === 'audio-capture') errorMessage = errorT.audioCapture;
-        if (event.error === 'network') errorMessage = errorT.network;
-        
-        setError(errorMessage);
-        setTimeout(() => setError(null), 4000);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsRecording(false);
-      };
-    } else {
-        // Browser not supported for speech
     }
   }, [myLang]);
 
   const toggleRecording = () => {
-    if (!recognitionRef.current) {
-        setError(errorT.browserNotSupported);
-        setTimeout(() => setError(null), 4000);
-        return;
-    }
-    
     if (isRecording) {
-      recognitionRef.current?.stop();
+      sttService.stop();
+      setIsRecording(false);
     } else {
-      try {
-        recognitionRef.current?.start();
-        setIsRecording(true);
-        setError(null);
-      } catch(e) {
-          console.error(e);
-          setError(errorT.generic);
-      }
+      const langConfig = LANGUAGES.find(l => l.code === myLang);
+      const voiceCode = langConfig?.voiceCode || 'es-ES';
+      
+      sttService.start(
+        voiceCode,
+        async (text, isFinal) => {
+            if (isFinal) {
+                await handleSendMessage(text);
+                // Optional: Stop after one sentence or keep listening
+                sttService.stop();
+                setIsRecording(false);
+            }
+        },
+        (err) => {
+            console.error("STT Error", err);
+            setIsRecording(false);
+            
+            let errorMessage = errorT.generic;
+            if (err === 'not-allowed') errorMessage = errorT.permissionDenied;
+            if (err === 'no-speech') errorMessage = errorT.noSpeech;
+            if (err === 'audio-capture') errorMessage = errorT.audioCapture;
+            if (err === 'network') errorMessage = errorT.network;
+            
+            setError(errorMessage);
+            setTimeout(() => setError(null), 4000);
+        }
+      );
+      setIsRecording(true);
+      setError(null);
     }
   };
 
@@ -130,10 +116,10 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
         setTimeout(async () => {
             try {
                 // Get AI response as peer
-                const peerResponseText = await geminiService.simulatePeerResponse(text, peerLang);
+                const peerResponseText = await translationService.simulatePeerResponse(text, peerLang);
                 
                 // Translate Peer Response to My Language for display (Lingvo feature)
-                const translation = await geminiService.translate(peerResponseText, peerLang, myLang);
+                const translation = await translationService.translate(peerResponseText, peerLang, myLang);
                 
                 const peerMsg: Message = {
                     id: crypto.randomUUID(),
@@ -149,7 +135,7 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
                 // Auto Speak (TTS) the translation
                 speakText(translation, myLang);
             } catch (e: any) {
-                console.error("Gemini Error:", e);
+                console.error("Translation Error:", e);
                 let errMsg = errorT.generic;
                 if (e.message?.includes('API Key')) errMsg = errorT.apiKeyInvalid;
                 if (e.message?.includes('quota')) errMsg = errorT.quotaExceeded;
@@ -164,12 +150,9 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
   };
 
   const speakText = (text: string, langCode: string) => {
-     if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        const langConfig = LANGUAGES.find(l => l.code === langCode);
-        utterance.lang = langConfig?.voiceCode || 'en-US';
-        window.speechSynthesis.speak(utterance);
-     }
+     const langConfig = LANGUAGES.find(l => l.code === langCode);
+     const voiceCode = langConfig?.voiceCode || 'en-US';
+     ttsService.speak(text, voiceCode).catch(console.error);
   };
 
   const currentLangObj = LANGUAGES.find(l => l.code === myLang);

@@ -1,17 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
+import { ITranslationService } from "../domain/ITranslationService";
 
-const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key not found");
-  return new GoogleGenAI({ apiKey });
-};
+export class GeminiTranslationService implements ITranslationService {
+  private getClient() {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) throw new Error("API Key not found");
+    return new GoogleGenAI({ apiKey });
+  }
 
-export const geminiService = {
-  translate: async (text: string, sourceLang: string, targetLang: string): Promise<string> => {
+  async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
     if (!text.trim()) return "";
     
     try {
-      const ai = getClient();
+      const ai = this.getClient();
       const prompt = `
         You are a highly skilled professional translator.
         Translate the following text from ${sourceLang} to ${targetLang}.
@@ -32,14 +33,13 @@ export const geminiService = {
       return response.text?.trim() || "";
     } catch (error: any) {
       console.error("Translation error:", error);
-      // Re-throw to handle in UI
       throw error;
     }
-  },
+  }
 
-  simulatePeerResponse: async (lastUserMessage: string, peerLang: string): Promise<string> => {
+  async simulatePeerResponse(lastUserMessage: string, peerLang: string): Promise<string> {
     try {
-      const ai = getClient();
+      const ai = this.getClient();
       const prompt = `
         Roleplay as a friendly person chatting in a messenger app. 
         The user just said: "${lastUserMessage}".
@@ -60,4 +60,4 @@ export const geminiService = {
       throw error;
     }
   }
-};
+}

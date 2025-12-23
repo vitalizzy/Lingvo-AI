@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { User, LANGUAGES, Language } from '../../../shared/types/types';
-import { geminiService } from '../../translation/infrastructure/geminiService';
+import React, { useState, useEffect } from 'react';
+import { User, LANGUAGES } from '../../../shared/types/types';
+import { translationService, sttService, ttsService } from '../../../shared/container';
 
 interface FaceToFaceProps {
   user: User;
@@ -107,16 +107,12 @@ const FaceToFace: React.FC<FaceToFaceProps> = ({ user, onBack, t, errorT }) => {
   
   const [error, setError] = useState<string | null>(null);
 
-  const recognitionRef = useRef<any>(null);
-
-  // Initialize Speech Recognition
+  // Cleanup on unmount
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-    }
+    return () => {
+        sttService.stop();
+        ttsService.stop();
+    };
   }, []);
 
   const handleMicClick = (side: 'A' | 'B') => {
@@ -125,7 +121,7 @@ const FaceToFace: React.FC<FaceToFaceProps> = ({ user, onBack, t, errorT }) => {
     
     // Stop any current listening
     if (listeningA || listeningB) {
-        recognitionRef.current?.stop();
+        sttService.stop();
         setListeningA(false);
         setListeningB(false);
         setStatusA(t.ready);
@@ -137,95 +133,85 @@ const FaceToFace: React.FC<FaceToFaceProps> = ({ user, onBack, t, errorT }) => {
     // Start listening for the selected side
     const langCode = isA ? langA : langB;
     const langConfig = LANGUAGES.find(l => l.code === langCode);
+    const voiceCode = langConfig?.voiceCode || 'en-US';
     
-    if (recognitionRef.current) {
-        recognitionRef.current.lang = langConfig?.voiceCode || 'en-US';
-        
-        recognitionRef.current.onstart = () => {
-             if (isA) {
-                 setListeningA(true);
-                 setStatusA(t.listening);
-                 setTextA(''); setTransA('');
-             } else {
-                 setListeningB(true);
-                 setStatusB(t.listening);
-                 setTextB(''); setTransB('');
-             }
-        };
-
-        recognitionRef.current.onresult = async (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            
-            try {
+    try {
+        sttService.start(
+            voiceCode,
+            async (transcript, isFinal) => {
                 if (isA) {
                     setTextA(transcript);
                     setStatusA(t.processing);
-                    const translation = await geminiService.translate(transcript, langA, langB);
-                    setTransA(translation);
-                    setStatusA(t.completed);
-                    speak(translation, langB);
                 } else {
                     setTextB(transcript);
                     setStatusB(t.processing);
-                    const translation = await geminiService.translate(transcript, langB, langA);
-                    setTransB(translation);
-                    setStatusB(t.completed);
-                    speak(translation, langA);
                 }
-            } catch(e: any) {
-                console.error("Gemini Error", e);
-                let errMsg = errorT.generic;
-                if (e.message?.includes('API Key')) errMsg = errorT.apiKeyInvalid;
-                if (e.message?.includes('quota')) errMsg = errorT.quotaExceeded;
-                setError(errMsg);
-                if(isA) setStatusA("Error"); else setStatusB("Error");
+
+                if (isFinal) {
+                    try {
+                        if (isA) {
+                            const translation = await translationService.translate(transcript, langA, langB);
+                            setTransA(translation);
+                            setStatusA(t.completed);
+                            speak(translation, langB);
+                        } else {
+                            const translation = await translationService.translate(transcript, langB, langA);
+                            setTransB(translation);
+                            setStatusB(t.completed);
+                            speak(translation, langA);
+                        }
+                    } catch(e: any) {
+                        console.error("Translation Error", e);
+                        let errMsg = errorT.generic;
+                        if (e.message?.includes('API Key')) errMsg = errorT.apiKeyInvalid;
+                        if (e.message?.includes('quota')) errMsg = errorT.quotaExceeded;
+                        setError(errMsg);
+                        if(isA) setStatusA("Error"); else setStatusB("Error");
+                        setTimeout(() => setError(null), 5000);
+                    }
+                    
+                    setListeningA(false);
+                    setListeningB(false);
+                    sttService.stop();
+                }
+            },
+            (e) => {
+                console.error("Speech Error", e);
+                setListeningA(false);
+                setListeningB(false);
+                if(isA) setStatusA('Error'); else setStatusB('Error');
+
+                let errorMessage = errorT.generic;
+                if (e === 'not-allowed') errorMessage = errorT.permissionDenied;
+                if (e === 'no-speech') errorMessage = errorT.noSpeech;
+                if (e === 'audio-capture') errorMessage = errorT.audioCapture;
+                if (e === 'network') errorMessage = errorT.network;
+                
+                setError(errorMessage);
                 setTimeout(() => setError(null), 5000);
             }
-            
-            setListeningA(false);
-            setListeningB(false);
-        };
+        );
 
-        recognitionRef.current.onerror = (e: any) => {
-            console.error("Speech Error", e);
-            setListeningA(false);
-            setListeningB(false);
-            if(isA) setStatusA('Error'); else setStatusB('Error');
-
-            let errorMessage = errorT.generic;
-            if (e.error === 'not-allowed') errorMessage = errorT.permissionDenied;
-            if (e.error === 'no-speech') errorMessage = errorT.noSpeech;
-            if (e.error === 'audio-capture') errorMessage = errorT.audioCapture;
-            if (e.error === 'network') errorMessage = errorT.network;
-            
-            setError(errorMessage);
-            setTimeout(() => setError(null), 5000);
-        };
-
-        recognitionRef.current.onend = () => {
-             if (listeningA) setListeningA(false);
-             if (listeningB) setListeningB(false);
-        };
-
-        try {
-            recognitionRef.current.start();
-        } catch(e) {
-            console.error("Start Error", e);
-            setError(errorT.generic);
+        if (isA) {
+            setListeningA(true);
+            setStatusA(t.listening);
+            setTextA(''); setTransA('');
+        } else {
+            setListeningB(true);
+            setStatusB(t.listening);
+            setTextB(''); setTransB('');
         }
-    } else {
-        setError(errorT.browserNotSupported);
-        setTimeout(() => setError(null), 5000);
+
+    } catch(e) {
+        console.error("Start Error", e);
+        setError(errorT.generic);
     }
   };
 
   const speak = (text: string, langCode: string) => {
-    if ('speechSynthesis' in window) {
-       const utterance = new SpeechSynthesisUtterance(text);
-       const langConfig = LANGUAGES.find(l => l.code === langCode);
-       utterance.lang = langConfig?.voiceCode || 'en-US';
-       window.speechSynthesis.speak(utterance);
-    }
+    const langConfig = LANGUAGES.find(l => l.code === langCode);
+    const voiceCode = langConfig?.voiceCode || 'en-US';
+    ttsService.speak(text, voiceCode).catch(console.error);
   };
 
   const cycleLang = (side: 'A' | 'B') => {
