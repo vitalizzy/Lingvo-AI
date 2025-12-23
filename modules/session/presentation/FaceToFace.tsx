@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, LANGUAGES, Language } from '../types';
-import { geminiService } from '../services/geminiService';
+import { User, LANGUAGES, Language } from '../../../shared/types/types';
+import { geminiService } from '../../translation/infrastructure/geminiService';
 
 interface FaceToFaceProps {
   user: User;

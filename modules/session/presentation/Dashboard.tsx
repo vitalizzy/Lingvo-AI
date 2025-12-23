@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User } from '../../../shared/types/types';
 
 interface DashboardProps {
   user: User;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { User, LANGUAGES, AppTheme, AppLanguage } from '../types';
-import { authService } from '../services/authService';
+import { User, LANGUAGES, AppTheme, AppLanguage } from '../../../shared/types/types';
+import { authService } from '../infrastructure/authService';
 
 interface ProfileProps {
   user: User;

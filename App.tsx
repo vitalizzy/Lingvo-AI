@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, AppMode, LANGUAGES, AppTheme, AppLanguage } from './types';
-import { authService } from './services/authService';
-import { translations } from './utils/translations';
-import Login from './views/Login';
-import Dashboard from './views/Dashboard';
-import RemoteSession from './views/RemoteSession';
-import FaceToFace from './views/FaceToFace';
-import Profile from './views/Profile';
+import { User, AppMode, LANGUAGES, AppTheme, AppLanguage } from './shared/types/types';
+import { authService } from './modules/auth/infrastructure/authService';
+import { translations } from './shared/utils/translations';
+import Login from './modules/auth/presentation/Login';
+import Dashboard from './modules/session/presentation/Dashboard';
+import RemoteSession from './modules/session/presentation/RemoteSession';
+import FaceToFace from './modules/session/presentation/FaceToFace';
+import Profile from './modules/auth/presentation/Profile';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);

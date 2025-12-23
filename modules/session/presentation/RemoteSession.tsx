@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Message, LANGUAGES } from '../types';
-import { geminiService } from '../services/geminiService';
+import { User, Message, LANGUAGES } from '../../../shared/types/types';
+import { geminiService } from '../../translation/infrastructure/geminiService';
 
 interface RemoteSessionProps {
   user: User;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { User, AppTheme, AppLanguage } from '../types';
-import { authService } from '../services/authService';
+import { User, AppTheme, AppLanguage } from '../../../shared/types/types';
+import { authService } from '../infrastructure/authService';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -133,7 +133,7 @@ const Login: React.FC<LoginProps> = ({
                     <div className="w-[150%] h-[150%] bg-gradient-to-tr from-primary/30 via-purple-500/20 to-transparent blur-3xl absolute -top-10 -right-10 rounded-full animate-pulse-fast"></div>
                     <div className="w-[120%] h-[120%] bg-gradient-to-bl from-blue-400/20 via-transparent to-primary/10 blur-2xl absolute -bottom-10 -left-10 rounded-full"></div>
                 </div>
-                <!-- Floating central icon -->
+                {/* Floating central icon */}
                 <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 transform flex-col items-center justify-center gap-3">
                     <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white dark:bg-background-dark shadow-2xl ring-4 ring-primary/20 backdrop-blur-sm">
                         <span className="material-symbols-outlined text-5xl text-primary">graphic_eq</span>
@@ -151,7 +151,7 @@ const Login: React.FC<LoginProps> = ({
 
             {/* Actions */}
             <div className="w-full max-w-sm space-y-3.5 pb-8">
-                <!-- Google Button -->
+                {/* Google Button */}
                 <button 
                     onClick={handleGoogleLogin}
                     disabled={isLoggingIn}
@@ -190,7 +190,7 @@ const Login: React.FC<LoginProps> = ({
                     <div className="h-px flex-1 bg-slate-200 dark:bg-white/10"></div>
                 </div>
 
-                <!-- Email Button -->
+                {/* Email Button */}
                 <button 
                     onClick={handleEmailLogin}
                     disabled={isLoggingIn}

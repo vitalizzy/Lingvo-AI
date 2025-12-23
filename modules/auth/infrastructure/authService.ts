@@ -1,4 +1,4 @@
-import { User } from '../types';
+import { User } from '../../../shared/types/types';
 
 const STORAGE_KEY = 'lingvo_user_v1';
 
