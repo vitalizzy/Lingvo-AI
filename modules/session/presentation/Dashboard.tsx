@@ -113,7 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onOpenProfile, onStartRemot
       </main>
 
       <footer className="py-6 text-center">
-        <p className="text-xs text-slate-500 dark:text-slate-600">Lingvo AI Translator v1.0.0</p>
+        <p className="text-xs text-slate-500 dark:text-slate-600">Jesus Vita - Lingvo AI Translator v1.0.0</p>
       </footer>
     </div>
   );
