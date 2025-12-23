@@ -135,8 +135,11 @@ const Login: React.FC<LoginProps> = ({
                 </div>
                 {/* Floating central icon */}
                 <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 transform flex-col items-center justify-center gap-3">
-                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white dark:bg-background-dark shadow-2xl ring-4 ring-primary/20 backdrop-blur-sm">
-                        <span className="material-symbols-outlined text-5xl text-primary">graphic_eq</span>
+                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-purple-600 shadow-2xl ring-4 ring-white/20 backdrop-blur-sm">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 13.4876 3.36093 14.891 4 16.1272L3 21L7.8728 20C9.10898 20.6391 10.5124 21 12 21Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 12H8.01M12 12H12.01M16 12H16.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </div>
                 </div>
             </div>
