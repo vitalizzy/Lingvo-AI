@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, LANGUAGES } from '../../../shared/types/types';
-import { translationService, sttService, ttsService } from '../../../shared/container';
+import { translationService, sttService, ttsService, sessionService } from '../../../shared/container';
+import { SessionEvent } from '../domain/ISessionService';
 
 interface RemoteSessionProps {
   user: User;
@@ -14,31 +15,63 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const [peerName, setPeerName] = useState(t.waiting);
-  const [peerLang, setPeerLang] = useState('en'); // Simulated peer language
+  const [peer, setPeer] = useState<User | null>(null);
+  const [peerLang, setPeerLang] = useState('en');
   const [myLang, setMyLang] = useState(user.preferredLanguage || 'es');
   const [textInput, setTextInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Session Simulation
+  // Initialize Session
   useEffect(() => {
-    // Simulate connection
-    const timer = setTimeout(() => {
-      setConnectionStatus('connected');
-      setPeerName('Sarah Connor');
-      // Welcome message
-      addMessage({
-        id: 'sys-1',
-        text: "Hello! I'm speaking English.",
-        senderId: 'peer',
-        timestamp: Date.now(),
-        language: peerLang
-      });
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    // Join session
+    sessionService.joinSession(sessionId, user);
+    setConnectionStatus('connected'); // Assume connected for broadcast
+
+    let peerSet = false;
+    const handleSessionEvent = (event: SessionEvent) => {
+        if (event.sessionId !== sessionId) return;
+
+        if (event.type === 'JOIN') {
+            if (event.senderId !== user.id && !peerSet) {
+                const peerUser = event.payload.user as User;
+                setPeer(peerUser);
+                setPeerLang(peerUser.preferredLanguage || 'en');
+                peerSet = true;
+
+                // Reply with my info solo si no hay peer
+                sessionService.joinSession(sessionId, user);
+            }
+        }
+
+        if (event.type === 'MESSAGE') {
+            if (event.senderId !== user.id) {
+                const incomingMsg = event.payload.message as Message;
+                handleIncomingMessage(incomingMsg);
+            }
+        }
+
+        if (event.type === 'UPDATE_LANG') {
+             if (event.senderId !== user.id) {
+                 setPeerLang(event.payload.language);
+             }
+        }
+    };
+
+    sessionService.onEvent(handleSessionEvent);
+
+    return () => {
+        sessionService.leaveSession(sessionId, user.id);
+        sessionService.offEvent(handleSessionEvent);
+        sttService.stop();
+        ttsService.stop();
+    };
+  }, [sessionId]);
+
+  // Notify language change
+  useEffect(() => {
+      sessionService.updateLanguage(sessionId, user.id, myLang);
+  }, [myLang]);
 
   // Auto scroll
   useEffect(() => {
@@ -46,6 +79,22 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleIncomingMessage = async (msg: Message) => {
+      // Translate incoming message to my language
+      try {
+          const translation = await translationService.translate(msg.text, msg.language, myLang);
+          const processedMsg: Message = {
+              ...msg,
+              translation: translation
+          };
+          addMessage(processedMsg);
+          speakText(translation, myLang);
+      } catch (e) {
+          console.error("Translation error", e);
+          addMessage(msg); // Show original if translation fails
+      }
+  };
 
   // Handle Speech Recognition
   useEffect(() => {
@@ -69,7 +118,6 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
         async (text, isFinal) => {
             if (isFinal) {
                 await handleSendMessage(text);
-                // Optional: Stop after one sentence or keep listening
                 sttService.stop();
                 setIsRecording(false);
             }
@@ -77,14 +125,7 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
         (err) => {
             console.error("STT Error", err);
             setIsRecording(false);
-            
-            let errorMessage = errorT.generic;
-            if (err === 'not-allowed') errorMessage = errorT.permissionDenied;
-            if (err === 'no-speech') errorMessage = errorT.noSpeech;
-            if (err === 'audio-capture') errorMessage = errorT.audioCapture;
-            if (err === 'network') errorMessage = errorT.network;
-            
-            setError(errorMessage);
+            setError(errorT.generic);
             setTimeout(() => setError(null), 4000);
         }
       );
@@ -105,48 +146,16 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       text: text,
-      senderId: 'me',
+      senderId: user.id, // Use real ID
       timestamp: Date.now(),
       language: myLang
     };
-    addMessage(userMsg);
+    
+    // Add to local UI immediately
+    addMessage({ ...userMsg, senderId: 'me' });
 
-    try {
-        // UI Feedback for peer typing
-        setTimeout(async () => {
-            try {
-                // Get AI response as peer
-                const peerResponseText = await translationService.simulatePeerResponse(text, peerLang);
-                
-                // Translate Peer Response to My Language for display (Lingvo feature)
-                const translation = await translationService.translate(peerResponseText, peerLang, myLang);
-                
-                const peerMsg: Message = {
-                    id: crypto.randomUUID(),
-                    text: peerResponseText, // The original text spoken by peer
-                    translation: translation, // Translated for me
-                    senderId: 'peer',
-                    timestamp: Date.now(),
-                    language: peerLang
-                };
-                
-                addMessage(peerMsg);
-                
-                // Auto Speak (TTS) the translation
-                speakText(translation, myLang);
-            } catch (e: any) {
-                console.error("Translation Error:", e);
-                let errMsg = errorT.generic;
-                if (e.message?.includes('API Key')) errMsg = errorT.apiKeyInvalid;
-                if (e.message?.includes('quota')) errMsg = errorT.quotaExceeded;
-                setError(errMsg);
-                setTimeout(() => setError(null), 5000);
-            }
-        }, 1500);
-    } catch (e) {
-        // Immediate send error
-        setError(errorT.network);
-    }
+    // Broadcast to peer
+    sessionService.sendMessage(sessionId, userMsg);
   };
 
   const speakText = (text: string, langCode: string) => {
@@ -182,13 +191,13 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
                 <span className="material-symbols-outlined">arrow_back_ios_new</span>
             </button>
             <div className="relative">
-                <div className="bg-gradient-to-br from-purple-500/20 to-purple-800/20 rounded-full size-10 border border-slate-200 dark:border-gray-700 flex items-center justify-center text-xl text-purple-600 dark:text-purple-400">
-                    {connectionStatus === 'connected' ? 'SC' : '...'}
+                <div className="bg-gradient-to-br from-purple-500/20 to-purple-800/20 rounded-full size-10 border border-slate-200 dark:border-gray-700 flex items-center justify-center text-xl text-purple-600 dark:text-purple-400 font-bold">
+                  {peer ? (peer.name ? peer.name.charAt(0).toUpperCase() : peer.email.charAt(0).toUpperCase()) : '...'}
                 </div>
                 <div className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-white dark:border-background-dark ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`}></div>
             </div>
             <div>
-                <h2 className="font-bold leading-tight text-slate-900 dark:text-white">{peerName}</h2>
+                <h2 className="font-bold leading-tight text-slate-900 dark:text-white">{peer ? (peer.name || peer.email) : t.waiting}</h2>
                 <p className="text-xs text-slate-500">
                     {connectionStatus === 'connected' ? t.online : t.connecting}
                 </p>
@@ -211,7 +220,7 @@ const RemoteSession: React.FC<RemoteSessionProps> = ({ user, sessionId, onBack, 
         </div>
 
         {messages.map((msg) => {
-            const isMe = msg.senderId === 'me';
+            const isMe = msg.senderId === 'me' || msg.senderId === user.id;
             return (
                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} message-fade-in`}>
                     <div className={`flex flex-col max-w-[85%] ${isMe ? 'items-end' : 'items-start'}`}>

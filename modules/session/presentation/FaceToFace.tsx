@@ -242,7 +242,27 @@ const FaceToFace: React.FC<FaceToFaceProps> = ({ user, onBack, t, errorT }) => {
 
         {/* Floating Controls (Center) */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
-            <div className="bg-white/90 dark:bg-surface-dark/90 backdrop-blur-md border border-slate-200 dark:border-white/10 shadow-2xl shadow-black/10 dark:shadow-black/50 rounded-full p-2 flex md:flex-col items-center gap-2 pointer-events-auto">
+            <div className="bg-white/90 dark:bg-surface-dark/90 backdrop-blur-md border border-slate-200 dark:border-white/10 shadow-2xl shadow-black/10 dark:shadow-black/50 rounded-full p-2 flex md:flex-col items-center gap-4 pointer-events-auto">
+                {/* Logo de la app */}
+                <div className="flex items-center gap-2">
+                  <div className="size-12 rounded-full bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <linearGradient id="grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#627bea" />
+                          <stop offset="100%" stopColor="#9333ea" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="16" cy="16" r="16" fill="url(#grad)" />
+                      <svg x="4" y="4" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 13.4876 3.36093 14.891 4 16.1272L3 21L7.8728 20C9.10898 20.6391 10.5124 21 12 21Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8 12H8.01M12 12H12.01M16 12H16.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </svg>
+                  </div>
+                  {/* Icono cara a cara */}
+                  <span className="material-symbols-outlined text-4xl text-primary">handshake</span>
+                </div>
                 {/* Mic A */}
                 <button 
                     onClick={() => handleMicClick('A')}
@@ -257,10 +277,8 @@ const FaceToFace: React.FC<FaceToFaceProps> = ({ user, onBack, t, errorT }) => {
                     </span>
                     <span className="text-[10px] font-bold mt-[-2px]">{langA.toUpperCase()}</span>
                 </button>
-
                 {/* Divider */}
                 <div className="w-[1px] h-8 md:w-8 md:h-[1px] bg-slate-300 dark:bg-white/10"></div>
-
                 {/* Mic B */}
                 <button 
                     onClick={() => handleMicClick('B')}

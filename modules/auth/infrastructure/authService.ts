@@ -12,11 +12,15 @@ export const authService = {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
+    // Generate a more random name for testing multiple users
+    const randomNames = ['Alex Rivera', 'Sam Smith', 'Jordan Lee', 'Casey Jones'];
+    const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+
     const mockUser: User = {
       id: crypto.randomUUID(),
-      name: provider === 'google' ? 'Alex Rivera' : (email?.split('@')[0] || 'User'),
-      email: email || 'alex.rivera@gmail.com',
-      photoUrl: provider === 'google' ? 'https://picsum.photos/100/100' : undefined,
+      name: provider === 'google' ? randomName : (email?.split('@')[0] || 'User'),
+      email: email || `${randomName.toLowerCase().replace(' ', '.')}@gmail.com`,
+      photoUrl: provider === 'google' ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}` : undefined,
       preferredLanguage: 'es'
     };
 
